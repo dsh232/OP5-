@@ -1,0 +1,9 @@
+1 measure: 36.6 C
+Temperature in Celsius: 36.600000 C
+Temperature in Fahrenheit: 97.880000 F
+2 measure: 666 F
+Temperature in Fahrenheit: 666.000000 F
+Temperature in Celsius: 352.222222 C
+3 measure: 3.99 C
+Temperature in Celsius: 3.990000 C
+Temperature in Fahrenheit: 39.182000 F
