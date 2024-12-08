@@ -3,7 +3,16 @@
 #include <string>
 #include <vector>
 #include <regex>								//добавить чтобы инпут файл запрашивался снова если файл не найден. проверка на ввод. повтор программы
+#include <sstream>
 
+double string_to_double(const std::string& s)
+{
+	std::istringstream i(s);
+	double x;
+	if (!(i >> x))
+		return -1;
+	return x;
+}
 char charInput()       //проверка корректного ввода символов
 {
 	char input;
@@ -67,52 +76,76 @@ public:
 	double getTempeture() {
 		return tempeture;
 	}
+	char getTypeTemp() {
+		return typeTemp;
+	}
 
-	std::string celOrFar() const{
+	std::string celOrFar() const {
 		std::string result;
 		if (typeTemp == 'C') {
 			double fahrenheitTemp = (tempeture * 9.0 / 5.0) + 32.0;
-			result = "Temperature in Celsius: " + std::to_string(tempeture) + " C\n" + "Temperature in Fahrenheit: " + std::to_string(fahrenheitTemp) + " F\n";
+			result = "Temperature in Celsius: " + std::to_string(tempeture) + " C\n" + "Temperature in Fahrenheit: " + std::to_string(fahrenheitTemp) + " F\n\n";
 		}
 		else if (typeTemp == 'F') {
 			double celsiusTemp = (tempeture - 32.0) * 5.0 / 9.0;
-			result = "Temperature in Fahrenheit: " + std::to_string(tempeture) + " F\n" + "Temperature in Celsius: " + std::to_string(celsiusTemp) + " C\n";
+			result = "Temperature in Fahrenheit: " + std::to_string(tempeture) + " F\n" + "Temperature in Celsius: " + std::to_string(celsiusTemp) + " C\n\n";
 		}
 		else {
-			result = "Uncorrect type of temperature. \n";
+			result = "ERROR. Uncorrect type of temperature. \n";
 		}
 		return result;
 	}
-
-	// перегрузка оператора >>
-	friend std::istream& operator>> (std::istream& input, TempetureMeasure& c)
+	friend std::istream& operator>>(std::istream& is, TempetureMeasure& r) // перегрузка оператора взятия из потока
 	{
-		input >> c.count >> c.tempeture >> c.typeTemp;
-		if (c.count < 1 || input.fail()) {
-			input.setstate(std::ios::failbit);
+		std::string protCount;
+		std::string protTempeture;
+		std::string protTypeTemp;
+
+		is >> protCount;
+		r.count = string_to_double(protCount);
+		if (r.count == -1) {
+			r.tempeture = 0;
+			r.typeTemp = 'E';
+			return is;
 		}
-		return input;
+		else {
+			is >> protTempeture;
+			r.tempeture = string_to_double(protTempeture);
+			if (r.tempeture == -1)
+			{
+				r.typeTemp = 'E';
+				return is;
+			}
+			else {
+				is >> protTypeTemp;
+				if (protTypeTemp != "C" and protTypeTemp != "F") {
+					r.typeTemp = 'E';
+					return is;
+				}
+				r.typeTemp = protTypeTemp.back();
+			}
+		}
+
+		return is;
 	}
+
 	// перегрузка оператора <<
 	friend std::ostream& operator<< (std::ostream& output, const TempetureMeasure& c)
 	{
-		output << c.count << " measure: " << c.tempeture << " " << c.typeTemp;
+		output << std::endl << c.count << " measure: " << c.tempeture << " " << c.typeTemp;
 		return output;
 	}
 };
 
-
 void inputFromFile(std::vector<TempetureMeasure>& temperatures, const std::string& file) {
-	std::ifstream input_file(file); 
+	std::ifstream input_file(file);
 	if (!input_file.is_open()) {
 		std::cout << "file is not found" << std::endl;
 	}
 	TempetureMeasure Tempeture;
-	while (input_file >> Tempeture) {
-		if (input_file.fail()) {   
-			std::cout << "uncorrect input in file." << std::endl;
-		}
-		temperatures.push_back(Tempeture);
+	while (!input_file.eof()) {
+		input_file >> Tempeture;
+		if (!(Tempeture.getTypeTemp() == 'E' and temperatures.size() > 0 and temperatures.back().getTypeTemp() == 'E')) temperatures.push_back(Tempeture);
 	}
 	input_file.close();
 }
@@ -124,6 +157,31 @@ void outputToFile(const std::vector<TempetureMeasure>& temperatures, const std::
 		outputFile << temperature.celOrFar();
 	}
 	outputFile.close();
+}
+
+std::vector<TempetureMeasure> readConsole() {
+	bool asking = true;
+		std::vector<TempetureMeasure> temps;
+		asking = true;
+		std::cout << "enter how many measure of temperature will be: ";
+		int m = intInput();
+		if (m < 0) {
+			while (asking) {
+				std::cout << "enter how many measure of temperature will be: ";
+				m = intInput();
+				if (m > 0) asking = false;
+			}
+		}
+		for (int j = 1; j < m + 1; j++) {
+			std::cout << "enter your " << j << " temperature: ";
+			double tempp = doubleInput();
+			std::cout << "enter type (C/F): ";
+			char typeTemp = charInput();
+			TempetureMeasure temp = TempetureMeasure(j, tempp, typeTemp);
+			temps.push_back(temp);
+		}
+
+	return temps;
 }
 
 std::vector<std::string> explode(const std::string& delimiter, const std::string& str)
@@ -161,67 +219,70 @@ std::vector<std::string> explode(const std::string& delimiter, const std::string
 int main() {
 	std::vector<TempetureMeasure> temperatures;
 	std::cout << "This program will show you your measurement in Celsius and Fahrenheit \n" << std::endl;
-	bool answerContiune = true;
-	std::cout << "how would you like to give us information? through console or file? (C/F): ";
-	while (answerContiune) {
-		char answer = charInput();
-		if (answer == 'C') {
-			std::cout << "enter how much of measure will be: ";
-			int countMeasure = intInput();
-			while (countMeasure < 1) {
-				std::cout << "enter correct measure: ";
-				countMeasure = intInput();
+	
+	bool is_need_next_run = true; //создание флага для повторного запуска программы
+	while (is_need_next_run) {
+		std::cout << "how would you like to give us information? through console or file? (C/F): ";
+		bool answerContiune = true;
+		while (answerContiune) {
+			char answer = charInput();
+			if (answer == 'C') {
+				temperatures = readConsole();
+				answerContiune = false;
 			}
-			std::cout << "Enter your measures in this way: Measurement _ your value _ type of the temperature." << std::endl;
-			for (int i = 0; i < countMeasure; i++) {
-				TempetureMeasure temperature;
-				if (std::cin >> temperature) {
-					temperatures.push_back(temperature);
+
+			else if (answer == 'F') {
+				std::cout << "what is your input file name?: ";
+				std::string filename;
+				std::cin >> filename;
+				inputFromFile(temperatures, filename);
+				answerContiune = false;
+			}
+			else {
+				std::cout << "uncorrect input. File or Console? ";
+			}
+		}
+
+		answerContiune = true;
+		std::cout << "where would you like us to write information? in console or in file? (C/F): ";
+		while (answerContiune) {
+			char answer = charInput();
+			if (answer == 'C') {
+				for (const auto& Tempeture : temperatures) {
+					std::cout << Tempeture << std::endl;
+					std::cout << Tempeture.celOrFar(); //Перевод температуры из одной единицы измерения в другую
 				}
-				else {
-					std::cout << "uncorrect enter. please try again. ";
-					std::cin.clear();
-					std::cin.ignore(1000, '\n');
-					--i;
-				}
+				answerContiune = false;
 			}
-			answerContiune = false;
-		}
 
-		else if (answer == 'F') {
-			std::cout << "what is your input file name?: ";
-			std::string filename;
-			std::cin >> filename;
-			inputFromFile(temperatures, filename);
-			answerContiune = false;
-		}
-		else {
-			std::cout << "uncorrect input. File or Console? ";
-		}
-	}
-
-	answerContiune = true;
-	std::cout << "where would you like us to write information? in console or in file? (C/F): ";
-	while (answerContiune) {
-		char answer = charInput();
-		if (answer == 'C') {
-			for (const auto& Tempeture : temperatures) {
-				std::cout << Tempeture << std::endl;
-				std::cout << Tempeture.celOrFar(); //Перевод температуры из одной единицы измерения в другую
+			else if (answer == 'F') {
+				std::cout << "What is your output file name?: ";
+				std::string filename;
+				std::cin >> filename;
+				outputToFile(temperatures, filename);
+				answerContiune = false;
 			}
-			answerContiune = false;
+			else {
+				std::cout << "uncorrect input. File or Console? ";
+			}
 		}
+		temperatures.clear();
+		bool is_need_processed = false;
+		do {
+			std::cout << "Wanna contiune? (Y/N):  ";
+			char answer = charInput();
+			if (answer == 'N') {
+				std::cout << "Bye!" << std::endl;
+				is_need_next_run = false;
+				is_need_processed = true;
+			}
+			else if (answer == 'Y') {
+				std::cout << "Contuine? ofc!" << std::endl;
+				
+				is_need_processed = true;
+			}
 
-		else if (answer == 'F') {
-			std::cout << "What is your output file name?: ";
-			std::string filename;
-			std::cin >> filename;
-			outputToFile(temperatures, filename);
-			answerContiune = false;
-		}
-		else {
-			std::cout << "uncorrect input. File or Console? ";
-		}
+		} while (!is_need_processed);
+
 	}
-	temperatures.clear();
 }
